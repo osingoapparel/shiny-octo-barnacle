@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Osingo Tailor Ledger</title>
+    <!-- Tailwind CSS for Modern UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; overflow: hidden; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Loading Spinner */
+        .spinner { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #ffffff; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+        .spinner-dark { border-color: rgba(0,0,0,0.1); border-top-color: #333; }
+        .spinner-large { width: 40px; height: 40px; border-width: 4px; border-top-color: #2563eb; border-color: rgba(37, 99, 235, 0.2); }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Tab Transitions */
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Sidebar Navigation Active State */
+        .nav-item { border-left: 3px solid transparent; transition: all 0.2s; }
+        .nav-item.active { background-color: rgba(255, 255, 255, 0.1); color: #fff; border-left-color: #3b82f6; }
+        
+        /* Custom Modal UI */
+        .ui-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px); z-index: 9999; justify-content: center; align-items: center; padding: 1rem; opacity: 0; transition: opacity 0.2s; }
+        .ui-modal-overlay.active { display: flex; opacity: 1; }
+        .ui-modal-content { background: white; width: 100%; max-width: 400px; border-radius: 1rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: scale(0.95); transition: transform 0.2s; overflow: hidden; }
+        .ui-modal-overlay.active .ui-modal-content { transform: scale(1); }
+    </style>
+</head>
+<body class="text-slate-800 antialiased h-screen flex flex-col">
+
+    <!-- Auth Container -->
+    <div id="authContainer" class="fixed inset-0 bg-slate-100 flex items-center justify-center z-[10000] p-4 transition-opacity duration-300">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+            <div class="flex justify-center mb-6">
+                <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30 text-white">
+                    <i class="ph-bold ph-scissors text-3xl"></i>
+                </div>
+            </div>
+            <h2 class="text-2xl font-bold text-center text-slate-800 mb-2">OSINGO</h2>
+            <p class="text-center text-slate-500 text-sm mb-8">Tailor Ledger Management</p>
+            
+            <form id="authForm" class="space-y-5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Email *</label>
+                    <input type="email" id="authEmail" required placeholder="admin@osingo.com" class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Password *</label>
+                    <input type="password" id="authPassword" required placeholder="••••••••" class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                </div>
+                
+                <div class="flex flex-col gap-3 pt-2">
+                    <button type="button" id="btnLogin" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition flex justify-center items-center gap-2">உள்நுழைக (Login)</button>
+                    <button type="button" id="btnRegister" class="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-200 transition border border-slate-300 flex justify-center items-center gap-2">புதிய கணக்கு உருவாக்கு (Register)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Dialog Modal -->
+    <div id="customDialog" class="ui-modal-overlay">
+        <div class="ui-modal-content flex flex-col">
+            <div class="p-5 border-b border-slate-100 flex items-center gap-3">
+                <i id="dialogIcon" class="ph-fill ph-warning-circle text-2xl text-orange-500"></i>
+                <h3 id="dialogTitle" class="font-bold text-lg text-slate-800">கவனம்</h3>
+            </div>
+            <div class="p-5 text-slate-600 text-sm leading-relaxed" id="dialogMessage">
+                Message...
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 justify-end">
+                <button id="dialogBtnCancel" class="hidden px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 font-medium text-sm transition">ரத்து செய்</button>
+                <button id="dialogBtnOk" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition">சரி</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Layout (Hidden by default) -->
+    <div id="appContainer" class="h-full w-full bg-slate-50 overflow-hidden relative hidden flex-col md:flex-row">
+        
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 z-40 hidden md:flex h-full absolute md:relative shadow-2xl md:shadow-none shrink-0">
+            <div class="h-16 flex items-center px-6 border-b border-slate-800/50">
+                <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center mr-3 shadow-lg shadow-blue-500/30">
+                    <i class="ph-bold ph-scissors text-white text-xl"></i>
+                </div>
+                <span class="text-white text-lg font-bold tracking-wider">OSINGO</span>
+                <button onclick="toggleSidebar()" class="md:hidden ml-auto text-slate-400 hover:text-white">
+                    <i class="ph-bold ph-x text-xl"></i>
+                </button>
+            </div>
+            
+            <nav class="flex-1 py-4 flex flex-col gap-1 px-3 overflow-y-auto mt-4">
+                <button onclick="switchTab('dashboard', this)" class="nav-item active flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 hover:text-white font-medium text-sm">
+                    <i class="ph-fill ph-squares-four text-lg"></i> டேஷ்போர்டு
+                </button>
+                <button onclick="switchTab('give-work', this)" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 hover:text-white font-medium text-sm">
+                    <i class="ph-fill ph-export text-lg text-red-400"></i> துணி கொடுக்க
+                </button>
+                <button onclick="switchTab('receive-work', this)" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 hover:text-white font-medium text-sm">
+                    <i class="ph-fill ph-import text-lg text-green-400"></i> வரவு வைக்க
+                </button>
+                <button onclick="switchTab('payment', this)" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 hover:text-white font-medium text-sm">
+                    <i class="ph-fill ph-currency-inr text-lg text-blue-400"></i> பணம் செலுத்துதல்
+                </button>
+                <button onclick="switchTab('reports', this)" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 hover:text-white font-medium text-sm">
+                    <i class="ph-fill ph-file-text text-lg text-purple-400"></i> முழு ரிப்போர்ட்
+                </button>
+                
+                <div class="mt-auto pt-4 border-t border-slate-800">
+                    <button id="btnLogout" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400 font-medium text-sm transition">
+                        <i class="ph-bold ph-sign-out text-lg"></i> வெளியேறு (Logout)
+                    </button>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Content Area -->
+        <main class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-slate-50 relative w-full">
+            
+            <!-- Mobile Header -->
+            <header class="h-16 bg-white border-b border-slate-200 flex items-center px-4 shrink-0 md:hidden z-10 shadow-sm w-full">
+                <button onclick="toggleSidebar()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
+                    <i class="ph-bold ph-list text-2xl"></i>
+                </button>
+                <span class="ml-3 font-bold text-slate-800 text-lg flex items-center gap-2">
+                    <i class="ph-bold ph-scissors text-blue-600"></i> OSINGO
+                </span>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 w-full" id="mainContentArea">
+                
+                <!-- Initial Loading Screen -->
+                <div id="globalLoading" class="flex flex-col items-center justify-center h-full">
+                    <div class="spinner spinner-large mb-4"></div>
+                    <p class="text-slate-500 font-medium">டேட்டா ஏற்றப்படுகிறது...</p>
+                </div>
+
+                <!-- 1. DASHBOARD -->
+                <div id="tab-dashboard" class="tab-content max-w-6xl mx-auto hidden">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <h2 class="text-2xl font-bold text-slate-800">டேஷ்போர்டு</h2>
+                        <button onclick="openModal('addTailorModal')" class="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2 shadow-md transition transform hover:scale-105">
+                            <i class="ph-bold ph-user-plus text-lg"></i> + புதிய டைலரை சேர்
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center"><i class="ph-fill ph-t-shirt text-2xl text-red-600"></i></div>
+                            <div>
+                                <p class="text-xs font-bold text-slate-500 uppercase">மொத்தம் வரவேண்டியவை</p>
+                                <p class="text-2xl font-bold text-slate-800" id="dashTotalPending">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center"><i class="ph-fill ph-wallet text-2xl text-green-600"></i></div>
+                            <div>
+                                <p class="text-xs font-bold text-slate-500 uppercase">மொத்த பேலன்ஸ்</p>
+                                <p class="text-2xl font-bold text-slate-800" id="dashTotalBalance">₹ 0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="bg-slate-50 p-3 border-b border-slate-200 flex items-center gap-2 text-xs font-medium text-slate-500">
+                            <i class="ph-fill ph-info"></i> டைலரின் முழு கணக்கைப் பார்க்க, அவர் பெயரைக் கிளிக் செய்யவும்.
+                        </div>
+                        <div class="overflow-x-auto w-full">
+                            <table class="w-full text-left border-collapse min-w-[500px]">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                                        <th class="px-5 py-4 font-bold">டைலர் பெயர் & எண்</th>
+                                        <th class="px-5 py-4 font-bold text-center">வரவேண்டியவை</th>
+                                        <th class="px-5 py-4 font-bold text-right">பேலன்ஸ் (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tailorTableBody" class="text-sm divide-y divide-slate-100">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. ASSIGN WORK (துணி கொடுக்க) -->
+                <div id="tab-give-work" class="tab-content max-w-2xl mx-auto hidden">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2"><i class="ph-fill ph-export text-red-500"></i> துணி கொடுக்க</h2>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+                        <form id="giveWorkForm" class="space-y-5">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">டைலர் *</label>
+                                    <select id="gwTailor" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-medium tailors-dropdown focus:outline-none focus:border-red-500"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">தேதி *</label>
+                                    <input type="date" id="gwDate" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-red-500">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">அளவு (Size) *</label>
+                                    <select id="gwSize" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-red-500">
+                                        <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">எண்ணிக்கை (Qty) *</label>
+                                    <input type="number" id="gwQty" required min="1" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold focus:outline-none focus:border-red-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">1 சட்டை கூலி (₹) *</label>
+                                    <input type="number" id="gwRate" required min="0" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold focus:outline-none focus:border-red-500">
+                                </div>
+                            </div>
+                            <button type="submit" id="btnGiveWork" class="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition flex justify-center items-center gap-2">பதிவு செய் & சேமி</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 3. RECEIVE WORK (வரவு வைக்க) -->
+                <div id="tab-receive-work" class="tab-content max-w-2xl mx-auto hidden">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2"><i class="ph-fill ph-import text-green-500"></i> வரவு வைக்க</h2>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
+                        <form id="receiveWorkForm" class="space-y-5">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">டைலர் *</label>
+                                    <select id="rwTailor" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-medium tailors-dropdown focus:outline-none focus:border-green-500"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">தேதி *</label>
+                                    <input type="date" id="rwDate" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-green-500">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">வந்தது (Qty Received) *</label>
+                                    <input type="number" id="rwQty" required min="1" oninput="calcTotal()" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold focus:outline-none focus:border-green-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">1 சட்டை கூலி (Rate ₹) *</label>
+                                    <input type="number" id="rwRate" required min="0" oninput="calcTotal()" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold focus:outline-none focus:border-green-500">
+                                </div>
+                            </div>
+                            <div class="bg-green-50 p-4 border border-green-100 rounded-lg flex justify-between items-center">
+                                <div><p class="text-xs font-bold text-green-700 uppercase">கணக்கில் சேரும் தொகை</p></div>
+                                <p class="text-2xl font-bold text-green-700" id="rwTotalTxt">₹ 0</p>
+                            </div>
+                            <button type="submit" id="btnReceiveWork" class="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition flex justify-center items-center gap-2">வரவு வை & கணக்கில் சேர்</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 4. PAYMENT (Ledger Only) -->
+                <div id="tab-payment" class="tab-content max-w-lg mx-auto hidden">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2"><i class="ph-fill ph-currency-inr text-blue-500"></i> பணம் செலுத்துதல்</h2>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                        <form id="paymentForm" class="p-6 space-y-5">
+                            <div class="bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs text-blue-800 font-medium mb-4 flex gap-2 items-center">
+                                <i class="ph-fill ph-info"></i> இங்கு பதிவு செய்யப்படும் தொகை டைலரின் பேலன்ஸிலிருந்து கழிக்கப்படும்.
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">தேதி *</label>
+                                <input type="date" id="payDate" required class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm font-medium">
+                            </div>
+                            
+                            <div class="bg-slate-50 p-4 rounded-lg flex justify-between items-center border border-slate-200 shadow-inner">
+                                <span class="text-xs font-bold text-slate-500 uppercase">டைலர்</span>
+                                <select id="payTailor" required onchange="updatePayInfo()" class="bg-transparent border-none font-bold text-blue-600 text-right focus:outline-none tailors-dropdown max-w-[180px]"></select>
+                            </div>
+                            
+                            <div class="flex justify-between items-center px-1">
+                                <span class="text-xs font-bold text-slate-500 uppercase">தற்போதைய பேலன்ஸ்:</span>
+                                <span id="payBalanceTxt" class="font-bold text-sm text-slate-800">₹ 0</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">செலுத்தும் தொகை (₹) *</label>
+                                <input type="number" id="payAmount" required min="1" placeholder="எ.கா: 1500" class="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 font-bold text-2xl text-center shadow-sm text-blue-700">
+                            </div>
+                            <button type="submit" id="btnPay" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-lg hover:bg-blue-700 transition shadow-md flex justify-center items-center gap-2">
+                                <i class="ph-bold ph-check-circle text-lg"></i> கணக்கில் வரவு வை
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 5. REPORTS -->
+                <div id="tab-reports" class="tab-content max-w-6xl mx-auto hidden">
+                    <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
+                        <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i class="ph-fill ph-file-text text-purple-500"></i> முழு ரிப்போர்ட்</h2>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <select id="reportFilter" onchange="renderReports()" class="flex-1 md:w-48 px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-500">
+                                <option value="ALL">அனைத்து டைலர்களும்</option>
+                            </select>
+                            <button onclick="window.print()" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-50 flex items-center gap-2 shrink-0 shadow-sm">
+                                <i class="ph-bold ph-printer"></i> Print
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto w-full">
+                            <table class="w-full text-left border-collapse min-w-[700px]">
+                                <thead>
+                                    <tr class="bg-slate-900 text-white text-xs uppercase tracking-wider">
+                                        <th class="px-4 py-3 font-bold">தேதி</th>
+                                        <th class="px-4 py-3 font-bold rep-col-name">டைலர்</th>
+                                        <th class="px-4 py-3 font-bold">விவரம்</th>
+                                        <th class="px-4 py-3 font-bold text-center">சைஸ்</th>
+                                        <th class="px-4 py-3 font-bold text-right">எண்ணிக்கை</th>
+                                        <th class="px-4 py-3 font-bold text-right">தொகை (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportsTableBody" class="text-sm divide-y divide-slate-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Add New Tailor -->
+    <div id="addTailorModal" class="ui-modal-overlay">
+        <div class="ui-modal-content flex flex-col">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-lg text-slate-800 flex items-center gap-2"><i class="ph-bold ph-user-plus text-blue-600"></i> புதிய டைலரை சேர்</h3>
+                <button type="button" onclick="closeModal('addTailorModal')" class="text-slate-400 hover:text-red-500"><i class="ph-bold ph-x text-xl"></i></button>
+            </div>
+            <form id="addTailorForm" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">பெயர் (Name) *</label>
+                    <input type="text" id="newTName" required class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">மொபைல் எண் (Mobile) *</label>
+                    <input type="text" id="newTPhone" required maxlength="10" pattern="[0-9]{10}" placeholder="9876543210" class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex gap-3 pt-2 mt-2">
+                    <button type="button" onclick="closeModal('addTailorModal')" class="flex-1 bg-slate-100 text-slate-700 font-bold py-2.5 rounded-lg text-sm hover:bg-slate-200 transition">ரத்து</button>
+                    <button type="submit" id="btnAddTailor" class="flex-1 bg-blue-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-blue-700 transition flex justify-center items-center">சேமி</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Global Toast Notification -->
+    <div id="toast" class="fixed top-5 right-5 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl transform translate-x-[150%] transition-transform duration-300 z-[99999] flex items-center gap-3 border border-slate-700 min-w-[250px]">
+        <i id="toastIcon" class="text-xl"></i>
+        <p id="toastMsg" class="text-sm font-medium">Success</p>
+    </div>
+
+    <!-- Scripts (Firebase + Logic) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, updateDoc, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Variables
+        let appId = 'osingo-tailor-app';
+        let firebaseConfig = { projectId: 'demo' };
+        let initialAuthToken = null;
+
+        // Secure Environment Variables parsing for Firebase
+        try {
+            if (typeof __app_id !== 'undefined') appId = __app_id;
+            if (typeof __firebase_config !== 'undefined') firebaseConfig = JSON.parse(__firebase_config);
+            if (typeof __initial_auth_token !== 'undefined') initialAuthToken = __initial_auth_token;
+        } catch(e) { console.error("Env parse error", e); }
+
+        let app, db, auth, currentUser = null;
+        let tailors = [], transactions = [];
+        let unsubscribeTailors = null, unsubscribeTxns = null;
+
+        // Exposing UI functions to window object
+        window.uiDialog = (msg, isConfirm = false, onOk = null) => {
+            const overlay = document.getElementById('customDialog');
+            document.getElementById('dialogMessage').innerText = msg;
+            const btnC = document.getElementById('dialogBtnCancel');
+            const btnO = document.getElementById('dialogBtnOk');
+            
+            if(isConfirm) {
+                btnC.classList.remove('hidden');
+                document.getElementById('dialogIcon').className = "ph-fill ph-question text-2xl text-blue-500";
+                document.getElementById('dialogTitle').innerText = "உறுதிப்படுத்தவும்";
+            } else {
+                btnC.classList.add('hidden');
+                document.getElementById('dialogIcon').className = "ph-fill ph-warning-circle text-2xl text-orange-500";
+                document.getElementById('dialogTitle').innerText = "தகவல்";
+            }
+            btnC.onclick = () => overlay.classList.remove('active');
+            btnO.onclick = () => { overlay.classList.remove('active'); if(onOk) onOk(); };
+            overlay.classList.add('active');
+        };
+
+        window.showToast = (msg, type = 'success') => {
+            const t = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            document.getElementById('toastIcon').className = type === 'error' ? "ph-fill ph-warning-circle text-red-500 text-xl" : "ph-fill ph-check-circle text-green-400 text-xl";
+            t.classList.remove('translate-x-[150%]');
+            setTimeout(() => t.classList.add('translate-x-[150%]'), 3000);
+        }
+
+        window.toggleSidebar = () => {
+            const sb = document.getElementById('sidebar');
+            if(sb.classList.contains('hidden')) {
+                sb.classList.remove('hidden');
+                sb.classList.add('flex');
+            } else {
+                sb.classList.add('hidden');
+                sb.classList.remove('flex');
+            }
+        };
+        
+        window.switchTab = (tabId, btn) => {
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.remove('active');
+                setTimeout(()=> el.classList.add('hidden'), 50); // slight delay for animation
+            });
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            setTimeout(()=> {
+                const tab = document.getElementById(`tab-${tabId}`);
+                if(tab) {
+                    tab.classList.remove('hidden');
+                    tab.classList.add('active');
+                }
+            }, 60);
+
+            if(btn) btn.classList.add('active');
+            if(window.innerWidth < 768) window.toggleSidebar(); // close sidebar on mobile
+        }
+
+        window.openModal = (id) => document.getElementById(id).classList.add('active');
+        window.closeModal = (id) => {
+            document.getElementById(id).classList.remove('active');
+            if(id === 'addTailorModal') document.getElementById('addTailorForm').reset();
+        }
+
+        window.calcTotal = () => {
+            const q = parseFloat(document.getElementById('rwQty').value) || 0;
+            const r = parseFloat(document.getElementById('rwRate').value) || 0;
+            document.getElementById('rwTotalTxt').innerText = `₹ ${(q * r).toLocaleString('en-IN')}`;
+        }
+
+        window.viewLedger = (tid) => {
+            window.switchTab('reports', document.querySelectorAll('.nav-item')[4]);
+            document.getElementById('reportFilter').value = tid;
+            window.renderReports();
+        }
+
+        window.updatePayInfo = () => {
+            const tid = document.getElementById('payTailor').value;
+            const t = tailors.find(x => x.id === tid);
+            if(t) {
+                document.getElementById('payBalanceTxt').innerText = `₹ ${(t.balance_amount||0).toLocaleString('en-IN')}`;
+            } else {
+                document.getElementById('payBalanceTxt').innerText = '₹ 0';
+            }
+        }
+
+        // ----------------------------------------------------
+        // Firebase Auth & Initialization
+        // ----------------------------------------------------
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                onAuthStateChanged(auth, (user) => {
+                    const authBox = document.getElementById('authContainer');
+                    const appBox = document.getElementById('appContainer');
+
+                    if (user) {
+                        currentUser = user;
+                        authBox.style.opacity = '0';
+                        setTimeout(() => authBox.style.display = 'none', 300);
+                        
+                        appBox.classList.remove('hidden');
+                        appBox.classList.add('flex');
+                        
+                        document.getElementById('globalLoading').style.display = 'flex';
+                        window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+                        startListeners();
+                    } else {
+                        currentUser = null;
+                        stopListeners();
+                        appBox.classList.remove('flex');
+                        appBox.classList.add('hidden');
+                        
+                        authBox.style.display = 'flex';
+                        setTimeout(() => authBox.style.opacity = '1', 50);
+                    }
+                });
+
+                if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
+            } catch(e) {
+                console.error("Firebase Init Error", e);
+                window.showToast("சர்வர் இணைப்பு தோல்வி.", "error");
+            }
+            
+            // Set Default Dates
+            const td = new Date();
+            if(document.getElementById('gwDate')) document.getElementById('gwDate').valueAsDate = td;
+            if(document.getElementById('rwDate')) document.getElementById('rwDate').valueAsDate = td;
+            if(document.getElementById('payDate')) document.getElementById('payDate').valueAsDate = td;
+        });
+
+        // Auth Logic
+        document.getElementById('btnLogin').addEventListener('click', async () => {
+            const e = document.getElementById('authEmail').value.trim();
+            const p = document.getElementById('authPassword').value;
+            if(!e || !p) return window.showToast("Email & Password தேவை", "error");
+            
+            const btn = document.getElementById('btnLogin');
+            btn.innerHTML = '<div class="spinner"></div>'; btn.disabled = true;
+            try {
+                await signInWithEmailAndPassword(auth, e, p);
+                window.showToast("உள்நுழைவு வெற்றி!");
+            } catch(err) {
+                window.uiDialog(err.message, false);
+            }
+            btn.innerHTML = 'உள்நுழைக (Login)'; btn.disabled = false;
+        });
+
+        document.getElementById('btnRegister').addEventListener('click', async () => {
+            const e = document.getElementById('authEmail').value.trim();
+            const p = document.getElementById('authPassword').value;
+            if(!e || !p) return window.showToast("Email & Password தேவை", "error");
+            
+            const btn = document.getElementById('btnRegister');
+            btn.innerHTML = '<div class="spinner spinner-dark"></div>'; btn.disabled = true;
+            try {
+                await createUserWithEmailAndPassword(auth, e, p);
+                window.showToast("கணக்கு உருவாக்கப்பட்டது!");
+            } catch(err) {
+                window.uiDialog(err.message, false);
+            }
+            btn.innerHTML = 'புதிய கணக்கு உருவாக்கு (Register)'; btn.disabled = false;
+        });
+
+        document.getElementById('btnLogout').addEventListener('click', () => {
+            window.uiDialog("நிச்சயமாக வெளியேற விரும்புகிறீர்களா?", true, () => {
+                signOut(auth).then(()=> { document.getElementById('authForm').reset(); });
+            });
+        });
+
+        function stopListeners() {
+            if(unsubscribeTailors) unsubscribeTailors();
+            if(unsubscribeTxns) unsubscribeTxns();
+        }
+
+        function startListeners() {
+            if(!currentUser) return;
+            const uid = currentUser.uid;
+
+            // Tailors Listener
+            unsubscribeTailors = onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'tailors'), (snap) => {
+                tailors = []; snap.forEach(d => tailors.push({id: d.id, ...d.data()}));
+                tailors.sort((a,b) => a.name.localeCompare(b.name));
+                renderTailors();
+                document.getElementById('globalLoading').style.display = 'none';
+            }, (e) => console.error("Tailors Listen Error:", e));
+
+            // Transactions Listener
+            unsubscribeTxns = onSnapshot(collection(db, 'artifacts', appId, 'users', uid, 'transactions'), (snap) => {
+                transactions = []; snap.forEach(d => transactions.push({id: d.id, ...d.data()}));
+                transactions.sort((a,b) => new Date(b.date) - new Date(a.date) || b.timestamp - a.timestamp);
+                window.renderReports();
+            }, (e) => console.error("Txn Listen Error:", e));
+        }
+
+        // ----------------------------------------------------
+        // Rendering UI
+        // ----------------------------------------------------
+        function renderTailors() {
+            const tb = document.getElementById('tailorTableBody');
+            const selects = document.querySelectorAll('.tailors-dropdown');
+            const rFilter = document.getElementById('reportFilter');
+            const currFilter = rFilter.value;
+            
+            if(!tb) return;
+            tb.innerHTML = '';
+            selects.forEach(s => s.innerHTML = '<option value="">-- டைலரை தேர்வு செய் --</option>');
+            rFilter.innerHTML = '<option value="ALL">அனைத்து டைலர்களும்</option>';
+
+            if(tailors.length === 0) {
+                tb.innerHTML = `<tr><td colspan="3" class="px-5 py-12 text-center text-slate-500">
+                    <i class="ph-bold ph-users text-4xl text-slate-300 mb-2 block"></i>
+                    எந்த டைலர் தகவலும் இல்லை.<br>புதிய டைலரை சேர்க்கவும்.
+                </td></tr>`;
+                document.getElementById('dashTotalPending').innerText = '0';
+                document.getElementById('dashTotalBalance').innerText = '₹ 0';
+                return;
+            }
+
+            let tP = 0, tB = 0;
+            tailors.forEach(t => {
+                const pend = t.pending_pieces || 0;
+                const bal = t.balance_amount || 0;
+                tP += pend; tB += bal;
+                
+                tb.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100 cursor-pointer group" onclick="viewLedger('${t.id}')">
+                        <td class="px-5 py-4">
+                            <div class="font-bold text-slate-800 group-hover:text-blue-600">${t.name}</div>
+                            <div class="text-[11px] text-slate-500 font-mono mt-0.5">${t.phone}</div>
+                        </td>
+                        <td class="px-5 py-4 text-center">
+                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-bold ${pend>0?'bg-red-50 text-red-600 border border-red-200':'bg-slate-100 text-slate-500'}">${pend} pcs</span>
+                        </td>
+                        <td class="px-5 py-4 text-right font-bold text-sm ${bal>0?'text-green-600':'text-slate-500'}">₹ ${(bal).toLocaleString('en-IN')}</td>
+                    </tr>`;
+                    
+                selects.forEach(s => s.add(new Option(t.name, t.id)));
+                rFilter.add(new Option(t.name, t.id));
+            });
+            
+            document.getElementById('dashTotalPending').innerText = tP.toLocaleString();
+            document.getElementById('dashTotalBalance').innerText = `₹ ${tB.toLocaleString('en-IN')}`;
+            rFilter.value = tailors.find(t=>t.id===currFilter) ? currFilter : 'ALL';
+            window.updatePayInfo();
+        }
+
+        window.renderReports = () => {
+            const tid = document.getElementById('reportFilter').value;
+            const tb = document.getElementById('reportsTableBody');
+            if(!tb) return;
+            
+            tb.innerHTML = '';
+            const list = tid === 'ALL' ? transactions : transactions.filter(x => x.tailorId === tid);
+            
+            if(list.length === 0) {
+                tb.innerHTML = `<tr><td colspan="6" class="px-5 py-10 text-center text-slate-400 font-medium">பரிவர்த்தனைகள் ஏதுமில்லை.</td></tr>`;
+                return;
+            }
+
+            list.forEach(tx => {
+                let badge = '', amtStr = '-';
+                if(tx.type === 'GIVEN') {
+                    badge = `<span class="text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase">கொடுத்தது</span>`;
+                } else if(tx.type === 'RECEIVED') { 
+                    badge = `<span class="text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase">வந்தது</span>`; 
+                    amtStr = `<span class="text-green-600 font-bold">+₹${(tx.amount||0).toLocaleString()}</span>`; 
+                } else if(tx.type === 'PAID') { 
+                    badge = `<span class="text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase">பேமெண்ட்</span>`; 
+                    amtStr = `<span class="text-red-500 font-bold">-₹${(tx.amount||0).toLocaleString()}</span>`; 
+                }
+
+                tb.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">${tx.date}</td>
+                        ${tid === 'ALL' ? `<td class="px-4 py-3 font-bold text-slate-700 text-xs">${tx.tailorName}</td>` : '<td class="hidden"></td>'}
+                        <td class="px-4 py-3">${badge}</td>
+                        <td class="px-4 py-3 text-center text-xs font-medium text-slate-600">${tx.size || '-'}</td>
+                        <td class="px-4 py-3 text-right font-bold text-sm text-slate-700">${tx.qty ? tx.qty : '-'}</td>
+                        <td class="px-4 py-3 text-right text-sm">${amtStr}</td>
+                    </tr>
+                `;
+            });
+            
+            const cols = document.querySelectorAll('.rep-col-name');
+            cols.forEach(c => c.style.display = tid === 'ALL' ? 'table-cell' : 'none');
+        }
+
+        // ----------------------------------------------------
+        // Forms Submission (Add, Give, Receive, Pay)
+        // ----------------------------------------------------
+        document.getElementById('addTailorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(!currentUser) return;
+            const btn = document.getElementById('btnAddTailor');
+            btn.innerHTML = '<div class="spinner"></div>'; btn.disabled = true;
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'tailors'), {
+                    name: document.getElementById('newTName').value.trim(),
+                    phone: document.getElementById('newTPhone').value,
+                    pending_pieces: 0, balance_amount: 0, created_at: serverTimestamp()
+                });
+                window.showToast("புதிய டைலர் சேர்க்கப்பட்டார்!");
+                window.closeModal('addTailorModal');
+            } catch(e) { window.uiDialog(e.message, false); }
+            btn.innerHTML = 'சேமி'; btn.disabled = false;
+        });
+
+        document.getElementById('giveWorkForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(!currentUser) return;
+            const tid = document.getElementById('gwTailor').value;
+            const t = tailors.find(x => x.id === tid);
+            if(!t) return;
+            
+            const qty = parseInt(document.getElementById('gwQty').value);
+            const rate = parseFloat(document.getElementById('gwRate').value);
+            
+            const btn = document.getElementById('btnGiveWork');
+            btn.innerHTML = '<div class="spinner"></div>'; btn.disabled = true;
+
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tailors', tid), {
+                    pending_pieces: (t.pending_pieces || 0) + qty, updated_at: serverTimestamp()
+                });
+                await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions'), {
+                    tailorId: tid, tailorName: t.name, date: document.getElementById('gwDate').value, 
+                    size: document.getElementById('gwSize').value, qty, rate, type: 'GIVEN', timestamp: Date.now()
+                });
+                window.showToast("வேலை பதிவு செய்யப்பட்டது!");
+                document.getElementById('giveWorkForm').reset();
+                document.getElementById('gwDate').valueAsDate = new Date();
+                window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+            } catch(err) { window.uiDialog(err.message, false); }
+            btn.innerHTML = 'பதிவு செய் & சேமி'; btn.disabled = false;
+        });
+
+        document.getElementById('receiveWorkForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(!currentUser) return;
+            const tid = document.getElementById('rwTailor').value;
+            const t = tailors.find(x => x.id === tid);
+            if(!t) return;
+
+            const qty = parseInt(document.getElementById('rwQty').value);
+            const rate = parseFloat(document.getElementById('rwRate').value);
+            const amt = qty * rate;
+            
+            const btn = document.getElementById('btnReceiveWork');
+            btn.innerHTML = '<div class="spinner"></div>'; btn.disabled = true;
+
+            try {
+                let p = (t.pending_pieces || 0) - qty;
+                if(p < 0) p = 0;
+                
+                await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tailors', tid), {
+                    pending_pieces: p, balance_amount: (t.balance_amount || 0) + amt, updated_at: serverTimestamp()
+                });
+                await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions'), {
+                    tailorId: tid, tailorName: t.name, date: document.getElementById('rwDate').value, 
+                    size: '-', qty, rate, amount: amt, type: 'RECEIVED', timestamp: Date.now()
+                });
+                window.showToast("கணக்கில் சேர்க்கப்பட்டது!");
+                document.getElementById('receiveWorkForm').reset();
+                document.getElementById('rwDate').valueAsDate = new Date();
+                document.getElementById('rwTotalTxt').innerText = '₹ 0';
+                window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+            } catch(err) { window.uiDialog(err.message, false); }
+            btn.innerHTML = 'வரவு வை & கணக்கில் சேர்'; btn.disabled = false;
+        });
+
+        document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(!currentUser) return;
+
+            const tid = document.getElementById('payTailor').value;
+            const amt = parseFloat(document.getElementById('payAmount').value);
+            const t = tailors.find(x => x.id === tid);
+            if(!t) return;
+
+            const executePayment = async () => {
+                const btn = document.getElementById('btnPay');
+                btn.innerHTML = '<div class="spinner"></div> செயலாக்குகிறது...'; 
+                btn.disabled = true;
+                
+                try {
+                    await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tailors', tid), {
+                        balance_amount: (t.balance_amount || 0) - amt, updated_at: serverTimestamp()
+                    });
+                    
+                    await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'transactions'), {
+                        tailorId: tid, tailorName: t.name, date: document.getElementById('payDate').value, 
+                        amount: amt, type: 'PAID', size: '-', timestamp: Date.now()
+                    });
+
+                    window.showToast("₹ " + amt + " வெற்றிகரமாக வரவு வைக்கப்பட்டது!");
+                    document.getElementById('payAmount').value = '';
+                    window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+                } catch(err) {
+                    window.uiDialog("பதிவு செய்ய முடியவில்லை: " + err.message);
+                }
+                
+                btn.innerHTML = '<i class="ph-bold ph-check-circle text-lg"></i> கணக்கில் வரவு வை'; 
+                btn.disabled = false;
+            };
+
+            if(amt > (t.balance_amount || 0)) {
+                window.uiDialog(`பேலன்ஸ் தொகையை விட அதிக தொகை (₹${amt}) செலுத்துகிறீர்கள். தொடர வேண்டுமா?`, true, executePayment);
+            } else { 
+                executePayment(); 
+            }
+        });
+    </script>
+</body>
+</html>
